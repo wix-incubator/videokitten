@@ -1,0 +1,88 @@
+{
+  "name": "videokitten",
+  "version": "1.0.0",
+  "description": "A cross-platform Node.js library for recording videos from iOS simulators and Android devices/emulators",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    ".idea/icon.png",
+    "README.md",
+    "dist",
+    "!__*__"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=16.14.0"
+  },
+  "scripts": {
+    "prepare": "husky || true",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:js": "node scripts/esbuild.mjs",
+    "build": "npm run build:types && npm run build:js",
+    "lint": "eslint . --fix",
+    "lint:ci": "eslint .",
+    "lint:staged": "lint-staged",
+    "test": "node --require ts-node/register --test src/*.test.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wix-incubator/videokitten.git"
+  },
+  "keywords": [
+    "video",
+    "recording",
+    "adb",
+    "xcrun",
+    "scrcpy",
+    "ios",
+    "android",
+    "simulator",
+    "emulator",
+    "screen-recording"
+  ],
+  "author": "Yaroslav Serhieiev <yaroslavs@wix.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wix-incubator/videokitten/issues"
+  },
+  "homepage": "https://github.com/wix-incubator/videokitten#readme",
+  "dependencies": {
+    "execa": "^5.1.1"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.4.2",
+    "@commitlint/config-conventional": "^17.4.2",
+    "@eslint/js": "^9.13.0",
+    "@types/chai": "^4.0.1",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^20.17.9",
+    "@typescript-eslint/eslint-plugin": "^8.4.0",
+    "@typescript-eslint/parser": "^8.4.0",
+    "chai": "^4.0.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "esbuild": "^0.24.0",
+    "eslint": "~9.14.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-jsdoc": "^50.2.2",
+    "eslint-plugin-prefer-arrow": "^1.2.3",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-unicorn": "^55.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.4.2",
+    "semantic-release": "^24.2.0",
+    "ts-node": "^10.9.2",
+    "typescript-eslint": "^8.10.0",
+    "typescript": "^5.6.3"
+  },
+  "browserslist": [
+    "node 16"
+  ]
+}
