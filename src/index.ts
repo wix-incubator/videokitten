@@ -27,5 +27,5 @@ export type {
   OnErrorHandler
 } from './options';
 
-// Main error class - users can catch this to handle any videokitten error
-export { VideokittenError } from './errors';
+// Public error classes - users can catch these to handle specifically videokitten errors
+export { VideokittenError, VideokittenOperationAbortedError } from './errors';

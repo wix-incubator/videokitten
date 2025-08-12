@@ -6,6 +6,7 @@ import {
   Videokitten,
   OnErrorHandler,
   VideokittenError,
+  VideokittenOperationAbortedError,
 } from 'videokitten';
 
 declare function assertType<T>(value: T): T;
@@ -82,6 +83,7 @@ assertType<Promise<string | undefined>>(androidInstance.record({
 
 // Test error classes
 assertType<Error>(new VideokittenError('test error'));
+assertType<VideokittenError>(new VideokittenOperationAbortedError());
 
 // Test union types
 assertType<VideokittenOptions>({
