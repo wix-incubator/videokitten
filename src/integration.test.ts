@@ -1,5 +1,5 @@
 import { test as it, describe } from 'node:test';
-import { strictEqual } from 'node:assert';
+import { strictEqual, rejects } from 'node:assert';
 import { existsSync } from 'node:fs';
 
 import { videokitten } from './index';
@@ -17,7 +17,11 @@ describe('Videokitten Integration Tests', () => {
       });
 
       try {
-        const videoPath = await ios.record();
+        const session = await ios.startRecording();
+        if (!session) {
+          throw new Error('No session returned');
+        }
+        const videoPath = await session.stop();
 
         if (videoPath) {
           strictEqual(typeof videoPath, 'string');
@@ -38,16 +42,17 @@ describe('Videokitten Integration Tests', () => {
       const ios = videokitten({
         platform: 'ios',
         xcrunPath: '/nonexistent/path/to/xcrun', // Deliberately broken path
-        timeout: 2 // 2-second limit for integration test
       });
 
-      try {
-        await ios.record();
-        strictEqual(false, true, 'Should have thrown an error');
-      } catch (error) {
-        strictEqual((error as Error).name, 'VideokittenXcrunNotFoundError');
-        console.log(`✅ Correctly caught xcrun error: ${(error as Error).message}`);
-      }
+      await rejects(
+        () => ios.startRecording(),
+        (err: Error) => {
+          strictEqual(err.name, 'VideokittenXcrunNotFoundError');
+          console.log(`✅ Correctly caught xcrun error: ${err.message}`);
+          return true;
+        },
+        'Should have rejected with VideokittenXcrunNotFoundError'
+      );
     });
   });
 
@@ -65,7 +70,11 @@ describe('Videokitten Integration Tests', () => {
       });
 
       try {
-        const videoPath = await android.record();
+        const session = await android.startRecording();
+        if (!session) {
+          throw new Error('No session returned');
+        }
+        const videoPath = await session.stop();
 
         if (videoPath) {
           strictEqual(typeof videoPath, 'string');
@@ -87,21 +96,17 @@ describe('Videokitten Integration Tests', () => {
         platform: 'android',
         scrcpyPath: '/nonexistent/path/to/scrcpy', // Deliberately broken path
         adbPath: '/nonexistent/path/to/adb', // Also break adb for good measure
-        timeout: 2 // 2-second limit for integration test
       });
 
-      try {
-        await android.record();
-        strictEqual(false, true, 'Should have thrown an error');
-      } catch (error) {
-        const errorName = (error as Error).name;
-        // Should get scrcpy error since that's the primary command being executed
-        if (errorName === 'VideokittenScrcpyNotFoundError') {
-          console.log(`✅ Correctly caught scrcpy error: ${(error as Error).message}`);
-        } else {
-          console.log(`⚠️  Got different error (still valid): ${errorName} - ${(error as Error).message}`);
-        }
-      }
+      await rejects(
+        () => android.startRecording(),
+        (err: Error) => {
+          strictEqual(err.name, 'VideokittenScrcpyNotFoundError');
+          console.log(`✅ Correctly caught scrcpy error: ${err.message}`);
+          return true;
+        },
+        'Should have rejected with VideokittenScrcpyNotFoundError'
+      );
     });
   });
 
@@ -111,8 +116,15 @@ describe('Videokitten Integration Tests', () => {
         videokitten({ platform: 'windows' } as any);
         strictEqual(false, true, 'Should have thrown an error');
       } catch (error) {
-        strictEqual((error as Error).message, 'Unsupported platform: windows');
-        console.log(`✅ Correctly caught unsupported platform error: ${(error as Error).message}`);
+        strictEqual(
+          (error as Error).message,
+          'Unsupported platform: windows'
+        );
+        console.log(
+          `✅ Correctly caught unsupported platform error: ${
+            (error as Error).message
+          }`
+        );
       }
     });
   });

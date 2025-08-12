@@ -28,4 +28,16 @@ export type {
 } from './options';
 
 // Public error classes - users can catch these to handle specifically videokitten errors
-export { VideokittenError, VideokittenOperationAbortedError } from './errors';
+export {
+  VideokittenError,
+  VideokittenOperationAbortedError,
+  VideokittenFileWriteError,
+  VideokittenDeviceNotFoundError,
+  VideokittenXcrunNotFoundError,
+  VideokittenScrcpyNotFoundError,
+  VideokittenAdbNotFoundError,
+  VideokittenIOSSimulatorError,
+  VideokittenAndroidDeviceError,
+  VideokittenRecordingFailedError,
+} from './errors';
+export type { RecordingSession } from './session';

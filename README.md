@@ -1,18 +1,12 @@
 # Videokitten 📱🎬
 
-A cross-platform Node.js library for recording videos from iOS simulators and Android devices/emulators.
-
-## Features
+**Videokitten** is a cross-platform Node.js library for recording videos from iOS simulators and Android emulators/devices. It provides a simple, unified API to automate screen recording for your integration tests, E2E tests, or any other automation needs.
 
 - 🍎 **iOS Simulator Support** - Record videos using `xcrun simctl`
-- 🤖 **Android Device/Emulator Support** - Record videos using `scrcpy`
-- 🔄 **Cross-platform** - Unified API for both platforms
-- 📁 **Flexible Output** - Save to custom paths or auto-generate temp files
-- ⏱️ **Timeout Support** - Set recording time limits
-- ⚡ **AbortController Support** - Cancel operations gracefully
-- 🎯 **TypeScript** - Full type safety and IntelliSense
-- 🔧 **Configurable** - Extensive options for both platforms
-- 🚨 **Rich Error Handling** - Detailed error types with proper inheritance
+- 🤖 **Android Emulator/Device Support** - Record videos using the powerful `scrcpy` tool
+- 🎥 **Flexible API** - Start and stop recording programmatically with full control.
+- 🛠️ **Error Handling** - Built-in error classification for common issues (e.g., device not found, tools not installed).
+- ✨ **TypeScript Support** - Fully typed for a great developer experience.
 
 ## Installation
 
@@ -22,227 +16,245 @@ npm install videokitten
 
 ## Quick Start
 
-### iOS Simulator
+Here's a basic example of how to record a 5-second video from a booted iOS simulator:
 
-```typescript
+```javascript
 import { videokitten } from 'videokitten';
 
-const ios = videokitten({
-  platform: 'ios',
-  deviceId: 'booted', // Default: 'booted'
-  codec: 'hevc', // Default: 'hevc'
-  timeout: 30, // Record for 30 seconds
-  outputPath: '/path/to/video.mp4' // Optional: auto-generated if not provided
-});
+async function main() {
+  const kitten = videokitten({ platform: 'ios' });
 
-const videoPath = await ios.record();
-console.log(`Video saved to: ${videoPath}`);
+  console.log('Starting iOS recording...');
+  const session = await kitten.startRecording();
+  if (!session) {
+    console.log('Recording failed to start (onError: ignore was set)');
+    return;
+  }
+
+  console.log('Recording started!');
+
+  // Let it record for 5 seconds
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  console.log('Stopping recording...');
+  const videoPath = await session.stop();
+  if (videoPath) {
+    console.log(`Video saved to: ${videoPath}`);
+  } else {
+    console.log('Recording failed to complete');
+  }
+}
+
+main().catch(console.error);
 ```
 
-### Android Device/Emulator
+## API
+
+### `videokitten(options)`
+
+Creates a new `Videokitten` instance.
+
+#### `options`
+
+An object with platform-specific configuration.
+
+##### iOS Options (`VideokittenOptionsIOS`)
 
 ```typescript
-import { videokitten } from 'videokitten';
+const options = {
+  platform: 'ios',
+  deviceId?: string;       // Default: 'booted' (the currently booted simulator)
+  outputPath?: string;     // Default: a temporary file in /tmp
+  xcrunPath?: string;      // Default: '/usr/bin/xcrun'
+  codec?: 'h264' | 'hevc'; // Default: 'hevc'
+  display?: 'internal' | 'external'; // Default: 'internal'
+  force?: boolean;         // Overwrite existing file. Default: false
+};
+```
 
+##### Android Options (`VideokittenOptionsAndroid`)
+
+Videokitten uses `scrcpy` for Android recording, so the options are a direct mapping to `scrcpy`'s command-line arguments.
+
+```typescript
+const options = {
+  platform: 'android',
+  deviceId?: string;          // Target a specific device by serial
+  outputPath?: string;        // Default: a temporary file in /tmp
+  scrcpyPath?: string;        // Path to scrcpy executable. Default: 'scrcpy'
+  adbPath?: string;           // Path to adb executable. Default: assumes in PATH
+
+  // See scrcpy documentation for all available options
+  recording?: {
+    bitRate?: number;         // e.g., 8_000_000 for 8 Mbps
+    codec?: 'h264' | 'h265' | 'av1';
+    format?: 'mp4' | 'mkv';
+    timeLimit?: number;       // In seconds
+  },
+
+  // And many more...
+};
+```
+
+### Base Options
+
+All platforms support these common options:
+
+```typescript
+const options = {
+  platform: 'ios' | 'android',
+  deviceId?: string;          // Device identifier
+  outputPath?: string;        // Output file path
+  abortSignal?: AbortSignal;  // Signal to cancel recording
+  onError?: 'throw' | 'ignore' | ((error: Error) => void);
+  timeout?: number;           // Recording timeout in seconds
+  delay?: number | [number, number]; // Frame buffering delays in milliseconds
+};
+```
+
+#### Delay Configuration
+
+The `delay` option controls timing delays for frame buffering:
+
+- **Single number**: Startup delay only (e.g., `200` = wait 200ms after process is ready)
+- **Tuple `[startup, stop]`**: Both startup and stop delays (e.g., `[200, 100]`)
+
+**Startup delay**: Waits after the process signals it's ready before considering recording started. This allows processes like scrcpy to initialize and buffer frames.
+
+**Stop delay**: Waits before stopping the process to ensure all buffered frames are written. This prevents missing the last few frames of the recording.
+
+**Defaults**:
+- **Android**: `200` - scrcpy needs time to buffer frames
+- **iOS**: `0` - iOS handles buffering internally
+
+```typescript
+// Custom delays for Android
 const android = videokitten({
   platform: 'android',
-  deviceId: 'emulator-5554', // Optional
-  recording: {
-    codec: 'h264',
-    bitRate: 8_000_000,
-    timeLimit: 30 // Record for 30 seconds
-  },
-  outputPath: '/path/to/video.mp4' // Optional: auto-generated if not provided
+  delay: [300, 150] // 300ms startup, 150ms stop delay
 });
 
-const videoPath = await android.record();
-console.log(`Video saved to: ${videoPath}`);
+// Just startup delay
+const android = videokitten({
+  platform: 'android',
+  delay: 250 // 250ms startup delay only
+});
 ```
 
-## API Reference
+### `kitten.startRecording(overrideOptions)`
 
-### Factory Function
+Starts a new recording session.
 
-#### `videokitten(options: VideokittenOptions)`
+- `overrideOptions`: An optional object to override the options provided to the `videokitten` constructor.
 
-Creates a platform-specific video recording instance.
+Returns a `Promise<RecordingSession | undefined>`. Returns `undefined` if recording fails to start and `onError` is set to `'ignore'`.
 
-**Parameters:**
-- `options` - Configuration object (see platform-specific options below)
+### `RecordingSession`
 
-**Returns:** `Videokitten` instance
+An object representing an active recording session.
 
-### iOS Options
+#### `session.stop()`
 
-```typescript
-interface VideokittenOptionsIOS {
-  platform: 'ios';
-  deviceId?: string;        // Default: 'booted'
-  xcrunPath?: string;       // Default: '/usr/bin/xcrun'
-  codec?: 'h264' | 'hevc';  // Default: 'hevc'
-  display?: 'internal' | 'external'; // Default: 'internal'
-  mask?: 'ignored' | 'alpha' | 'black'; // Default: 'ignored'
-  force?: boolean;          // Overwrite existing files
-  outputPath?: string;      // Auto-generated if not provided
-  timeout?: number;         // Recording timeout in seconds
-  abortSignal?: AbortSignal;
-  onError?: OnErrorHandler;
+Stops the recording gracefully and returns the path to the saved video file.
+
+Returns a `Promise<string | undefined>`. Returns `undefined` if recording fails to complete and `onError` is set to `'ignore'`.
+
+## Advanced Usage
+
+### Stopping with an `AbortSignal`
+
+You can use a standard `AbortSignal` to stop the recording. This is useful for integrating with other parts of your application that use abort controllers.
+
+```javascript
+import { videokitten } from 'videokitten';
+
+async function recordWithSignal() {
+  const kitten = videokitten({ platform: 'android' });
+  const controller = new AbortController();
+
+  // Abort after 10 seconds
+  setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const session = await kitten.startRecording({ abortSignal: controller.signal });
+    if (!session) {
+      console.log('Recording failed to start (onError: ignore was set)');
+      return;
+    }
+
+    console.log('Recording... press Ctrl+C or wait 10s to stop.');
+
+    // The `stop()` promise will be rejected with an AbortError
+    // when the signal is aborted.
+    const videoPath = await session.stop();
+    if (videoPath) {
+      console.log(`Video saved to: ${videoPath}`);
+    } else {
+      console.log('Recording failed to complete');
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Recording was aborted successfully.');
+    } else {
+      console.error('An unexpected error occurred:', error);
+    }
+  }
 }
-```
 
-### Android Options
-
-```typescript
-interface VideokittenOptionsAndroid {
-  platform: 'android';
-  deviceId?: string;        // Device serial number
-  adbPath?: string;         // Path to adb executable
-  scrcpyPath?: string;      // Path to scrcpy executable
-  recording?: {
-    bitRate?: number;       // Video bitrate (default: 8M)
-    codec?: 'h264' | 'h265' | 'av1'; // Video codec
-    format?: 'mp4' | 'mkv' | 'm4a' | 'mka' | 'opus' | 'aac' | 'flac' | 'wav';
-    maxSize?: number;       // Max video dimensions
-    timeLimit?: number;     // Recording time limit in seconds
-    orientation?: 0 | 90 | 180 | 270;
-  };
-  window?: false | {        // Display window options (default: false)
-    enabled?: boolean;
-    borderless?: boolean;
-    title?: string;
-    // ... more window options
-  };
-  audio?: false | {         // Audio recording options (default: false)
-    enabled?: boolean;
-    source?: 'output' | 'mic' | 'playback';
-    codec?: 'opus' | 'aac' | 'flac' | 'raw';
-    // ... more audio options
-  };
-  outputPath?: string;      // Auto-generated if not provided
-  timeout?: number;         // Recording timeout in seconds
-  abortSignal?: AbortSignal;
-  onError?: OnErrorHandler;
-}
+recordWithSignal();
 ```
 
 ### Error Handling
 
-You can control error behavior using the `onError` option:
+Videokitten throws specific error classes to help you handle different failure scenarios.
 
 ```typescript
-type OnErrorHandler = 'throw' | 'ignore' | ((error: Error) => void);
-```
-
-**Options:**
-- `'throw'` (default) - Throws the error
-- `'ignore'` - Suppresses the error and returns undefined
-- `function` - Custom error handler function
-
-```typescript
-// Custom error handling
-const ios = videokitten({
-  platform: 'ios',
-  onError: (error) => {
-    console.error('Recording failed:', error.message);
-    // Custom logging, reporting, etc.
-  }
-});
-```
-
-### Instance Methods
-
-#### `record(options?: Partial<VideokittenOptionsBase>): Promise<string | undefined>`
-
-Records a video and returns the path to the saved file.
-
-**Parameters:**
-- `options` - Optional override options for this specific recording
-
-**Returns:** Promise that resolves to the video file path or undefined if failed
-
-**Example:**
-```typescript
-// Use instance defaults
-const path1 = await ios.record();
-
-// Override specific options for this recording
-const path2 = await ios.record({
-  outputPath: '/custom/path.mp4',
-  deviceId: 'specific-device',
-  timeout: 10 // Record for 10 seconds
-});
-```
-
-### Abort Controller Support
-
-Cancel recording operations gracefully:
-
-```typescript
-const controller = new AbortController();
-
-const ios = videokitten({
-  platform: 'ios',
-  abortSignal: controller.signal
-});
-
-// Cancel after 5 seconds
-setTimeout(() => controller.abort(), 5000);
+import { videokitten, VideokittenError, VideokittenXcrunNotFoundError } from 'videokitten';
 
 try {
-  const path = await ios.record();
-  console.log('Video saved:', path);
+  const kitten = videokitten({ platform: 'ios', xcrunPath: '/invalid/path' });
+  const session = await kitten.startRecording();
+  if (!session) {
+    console.log('Recording failed to start (onError: ignore was set)');
+    return;
+  }
+
+  const videoPath = await session.stop();
+  if (videoPath) {
+    console.log(`Video saved to: ${videoPath}`);
+  }
 } catch (error) {
-  if (error.name === 'VideokittenOperationAbortedError') {
-    console.log('Recording was cancelled');
+  if (error instanceof VideokittenXcrunNotFoundError) {
+    console.error('xcrun is not installed or not in the correct path!');
+  } else if (error instanceof VideokittenError) {
+    console.error('A videokitten error occurred:', error.message);
+  } else {
+    console.error('An unknown error occurred:', error);
   }
 }
 ```
 
-## Error Types
+Available error classes:
 
-Videokitten provides specific error types for different failure scenarios:
-
-```typescript
-import {
-  VideokittenError,                    // Base error class - catch this for all errors
-} from 'videokitten';
-
-// All specific error types extend VideokittenError:
-// - VideokittenDeviceNotFoundError      // Device/simulator not found
-// - VideokittenXcrunNotFoundError       // xcrun tool not found (iOS)
-// - VideokittenAdbNotFoundError         // adb tool not found (Android)
-// - VideokittenScrcpyNotFoundError      // scrcpy tool not found (Android)
-// - VideokittenIOSSimulatorError        // iOS simulator not available
-// - VideokittenAndroidDeviceError       // Android device not available
-// - VideokittenFileWriteError           // Failed to write video file
-// - VideokittenOperationAbortedError    // Operation was aborted
-// - VideokittenRecordingFailedError     // Generic recording failure
-```
-
-All errors extend the base `VideokittenError` class, which extends the standard `Error` class.
+- `VideokittenError` (base class)
+- `VideokittenDeviceNotFoundError`
+- `VideokittenXcrunNotFoundError`       // xcrun tool not found (iOS)
+- `VideokittenScrcpyNotFoundError`      // scrcpy tool not found (Android)
+- `VideokittenAdbNotFoundError`         // adb tool not found (Android)
+- `VideokittenIOSSimulatorError`
+- `VideokittenAndroidDeviceError`
+- `VideokittenFileWriteError`
+- `VideokittenOperationAbortedError`
+- `VideokittenRecordingFailedError`
 
 ## Requirements
 
-### iOS
-- macOS with Xcode and iOS Simulator
-- `xcrun` tool (usually available at `/usr/bin/xcrun`)
-
-### Android
-- `scrcpy` tool installed (https://github.com/Genymobile/scrcpy)
-- Android SDK with `adb` tool
-- Android device connected or emulator running
-
-## CommonJS Support
-
-Videokitten supports both ES modules and CommonJS:
-
-```javascript
-// ES modules
-import { videokitten } from 'videokitten';
-
-// CommonJS
-const { videokitten } = require('videokitten');
-```
+- **Node.js**: v16.14.0 or higher
+- **iOS**: macOS with Xcode Command Line Tools installed.
+  - `xcrun` tool (usually available at `/usr/bin/xcrun`)
+- **Android**: `scrcpy` and `adb` must be installed and available in your system's `PATH`.
+  - [scrcpy releases](https://github.com/Genymobile/scrcpy/releases)
+  - [Android SDK Platform-Tools](https://developer.android.com/studio/releases/platform-tools)
 
 ## License
 

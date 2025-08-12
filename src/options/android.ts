@@ -361,7 +361,8 @@ export function createAndroidOptions(options: Partial<VideokittenOptionsAndroid>
     args.push('--record', options.outputPath);
   }
 
-  if (options.timeout) {
+  // Use unified timeout from base options as the scrcpy time-limit
+  if (options.timeout !== undefined) {
     args.push('--time-limit', options.timeout.toString());
   }
 
@@ -429,7 +430,8 @@ export function createAndroidOptions(options: Partial<VideokittenOptionsAndroid>
     if (options.recording.orientation !== undefined) {
       args.push('--record-orientation', options.recording.orientation.toString());
     }
-    if (options.recording.timeLimit !== undefined) {
+    // Do not pass duplicate time limit if base timeout is provided
+    if (options.recording.timeLimit !== undefined && options.timeout === undefined) {
       args.push('--time-limit', options.recording.timeLimit.toString());
     }
   }
