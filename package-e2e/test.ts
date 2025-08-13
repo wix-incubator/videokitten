@@ -4,9 +4,10 @@ import {
   VideokittenOptionsIOS,
   VideokittenOptionsAndroid,
   Videokitten,
-  OnErrorHandler,
   VideokittenError,
   VideokittenOperationAbortedError,
+  OnErrorHandler,
+  RecordingSession,
 } from 'videokitten';
 
 declare function assertType<T>(value: T): T;
@@ -23,7 +24,7 @@ const iosInstance = videokitten({
   display: 'internal',
   mask: 'ignored',
   outputPath: '/tmp/video.mp4',
-  onError: 'throw'
+  onError: 'throw',
 });
 assertType<Videokitten>(iosInstance);
 
@@ -33,7 +34,7 @@ const androidInstance = videokitten({
   deviceId: 'emulator-5554',
   adbPath: '/usr/bin/adb',
   outputPath: '/tmp/video.mp4',
-  onError: 'ignore'
+  onError: 'ignore',
 });
 assertType<Videokitten>(androidInstance);
 
@@ -46,7 +47,7 @@ assertType<VideokittenOptionsIOS>({
   display: 'internal',
   mask: 'ignored',
   outputPath: '/tmp/video.mp4',
-  onError: 'throw'
+  onError: 'throw',
 });
 
 assertType<VideokittenOptionsAndroid>({
@@ -54,7 +55,7 @@ assertType<VideokittenOptionsAndroid>({
   deviceId: 'emulator-5554',
   adbPath: '/usr/bin/adb',
   outputPath: '/tmp/video.mp4',
-  onError: 'ignore'
+  onError: 'ignore',
 });
 
 // Test OnErrorHandler types
@@ -64,22 +65,30 @@ assertType<OnErrorHandler>((error: Error) => console.error(error));
 
 // Test Videokitten interface
 const dummyVideokitten: Videokitten = {
-  record: async (options?: Partial<VideokittenOptions>) => '/path/to/video.mp4'
+  startRecording: async (options?: Partial<VideokittenOptions>) => {
+    return {
+      stop: async () => '/path/to/video.mp4',
+    } as RecordingSession;
+  },
 };
 assertType<Videokitten>(dummyVideokitten);
 
 // Test method signatures
-assertType<Promise<string | undefined>>(iosInstance.record());
-assertType<Promise<string | undefined>>(iosInstance.record({
-  deviceId: 'specific-device',
-  outputPath: '/custom/path.mp4'
-}));
+assertType<Promise<RecordingSession | undefined>>(iosInstance.startRecording());
+assertType<Promise<RecordingSession | undefined>>(
+  iosInstance.startRecording({
+    deviceId: 'specific-device',
+    outputPath: '/custom/path.mp4',
+  })
+);
 
-assertType<Promise<string | undefined>>(androidInstance.record());
-assertType<Promise<string | undefined>>(androidInstance.record({
-  deviceId: 'emulator-5554',
-  outputPath: '/custom/path.mp4'
-}));
+assertType<Promise<RecordingSession | undefined>>(androidInstance.startRecording());
+assertType<Promise<RecordingSession | undefined>>(
+  androidInstance.startRecording({
+    deviceId: 'emulator-5554',
+    outputPath: '/custom/path.mp4',
+  })
+);
 
 // Test error classes
 assertType<Error>(new VideokittenError('test error'));
@@ -89,10 +98,10 @@ assertType<VideokittenError>(new VideokittenOperationAbortedError());
 assertType<VideokittenOptions>({
   platform: 'ios',
   xcrunPath: '/usr/bin/xcrun',
-  codec: 'hevc'
+  codec: 'hevc',
 });
 
 assertType<VideokittenOptions>({
   platform: 'android',
-  adbPath: '/usr/bin/adb'
+  adbPath: '/usr/bin/adb',
 });

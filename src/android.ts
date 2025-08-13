@@ -1,18 +1,23 @@
-import fs from 'node:fs';
-
-import execa from 'execa';
-
-import type { Videokitten } from './types';
-import type { VideokittenOptionsAndroid, VideokittenOptionsBase } from './options';
-import { createAndroidOptions } from './options';
 import {
   VideokittenOperationAbortedError,
   VideokittenScrcpyNotFoundError,
   VideokittenAndroidDeviceError,
   VideokittenFileWriteError,
-  VideokittenRecordingFailedError
+  VideokittenRecordingFailedError,
 } from './errors';
-import { doHandleError, createVideoPath, ensureFileDirectory } from './utils';
+import {
+  doHandleError,
+  createVideoPath,
+  ensureFileDirectory,
+  RecordingProcess,
+} from './utils';
+import { RecordingSession } from './session';
+import type { Videokitten } from './types';
+import type {
+  VideokittenOptionsAndroid,
+  VideokittenOptionsBase,
+} from './options';
+import { createAndroidOptions } from './options';
 
 /**
  * Gets the appropriate file extension based on the recording format
@@ -36,14 +41,19 @@ export class VideokittenAndroid implements Videokitten<VideokittenOptionsAndroid
     this.scrcpyPath = options.scrcpyPath || 'scrcpy'; // Fallback to PATH
   }
 
-  async record(overrideOptions: Partial<VideokittenOptionsBase> = {}): Promise<string | undefined> {
+  async startRecording(
+    overrideOptions: Partial<VideokittenOptionsBase> = {}
+  ): Promise<RecordingSession | undefined> {
     const options = { ...this.options, ...overrideOptions };
     const onError = options.onError || 'throw';
 
     // Determine the correct file extension based on recording format
     const extension = getFileExtension(options.recording?.format);
-    const expectedPath = createVideoPath('android', extension, options.outputPath);
-    let outputPath: string | undefined = expectedPath;
+    const expectedPath = createVideoPath(
+      'android',
+      extension,
+      options.outputPath
+    );
 
     try {
       // Check for abort signal before starting
@@ -58,7 +68,7 @@ export class VideokittenAndroid implements Videokitten<VideokittenOptionsAndroid
       const args = createAndroidOptions({ ...options, outputPath: expectedPath });
 
       // Set up environment variables for scrcpy
-      const env = { ...process.env };
+      const env: NodeJS.ProcessEnv = { ...process.env };
 
       // Set ADB environment variable if adbPath is specified
       // This tells scrcpy where to find the adb executable
@@ -66,21 +76,30 @@ export class VideokittenAndroid implements Videokitten<VideokittenOptionsAndroid
         env.ADB = options.adbPath;
       }
 
-      await execa(this.scrcpyPath, args, {
+      const logLevel = options.debug?.logLevel;
+
+      const recordingProcess = new RecordingProcess({
+        command: this.scrcpyPath,
+        args,
         env,
-        signal: options.abortSignal
-      } as any); // Type assertion to bypass outdated definitions
+        signal: options.abortSignal,
+        delay: options.delay ?? 200,
+        readyMatcher:
+          (logLevel !== 'warn' && logLevel !== 'error')
+            ? (data: string) => data.includes('Device:')
+            : undefined,
+      });
 
-      // Verify the file was actually created
-      if (!fs.existsSync(expectedPath)) {
-        outputPath = undefined;
-        throw new VideokittenFileWriteError(expectedPath, new Error('Video file was not created'));
-      }
-
-      return outputPath;
+      await recordingProcess.started();
+      return new RecordingSession(recordingProcess, expectedPath, onError);
     } catch (error) {
-      const recordingError = this._classifyError(error, options.deviceId || 'default', expectedPath);
-      return doHandleError(onError, recordingError, Promise.resolve(outputPath));
+      const recordingError = this._classifyError(
+        error,
+        options.deviceId || 'default',
+        expectedPath
+      );
+      doHandleError(onError, recordingError);
+      return;
     }
   }
 

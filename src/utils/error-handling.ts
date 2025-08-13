@@ -7,17 +7,14 @@ import type { OnErrorHandler } from '../options';
  * @param result - The result to return when not throwing
  * @returns The result if not throwing, otherwise throws the error
  */
-export function doHandleError<R>(handler: OnErrorHandler | undefined, error: Error, result: R): R {
-  if (handler) {
-    if (handler === 'throw') {
-      throw error;
-    } else if (handler === 'ignore') {
-      return result; // Return result even though operation might have failed
-    } else {
-      handler(error);
-      return result;
-    }
+export function doHandleError(handler: OnErrorHandler | undefined, error: Error): void {
+  if (!handler || handler === 'throw') {
+    throw error;
   }
 
-  throw error;
+  if (handler === 'ignore') {
+    return;
+  }
+
+  handler(error);
 }

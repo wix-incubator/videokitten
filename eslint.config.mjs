@@ -12,6 +12,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      '**/__fixtures__/**',
       'package-e2e/**',
       'scripts/**',
       '*.{js,json,mjs}'
